@@ -1,0 +1,58 @@
+const express = require('express');
+const { createProxyMiddleware } = require('http-proxy-middleware');
+require('dotenv').config();
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+const TARGET = process.env.TARGET_URL || 'https://play.geforcenow.com';
+
+// Главная страница
+app.get('/', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head><title>My Proxy</title><style>
+      body { font-family: Arial; margin: 40px; background: #0f172a; color: #e2e8f0; }
+      .container { max-width: 800px; margin: 0 auto; background: #1e293b; padding: 30px; border-radius: 15px; }
+    </style></head>
+    <body>
+      <div class="container">
+        <h1>✅ Мой прокси-сервер работает</h1>
+        <p>Адрес: <code>${req.protocol}://${req.get('host')}</code></p>
+        <p>Перенаправляет на: <code>${TARGET}</code></p>
+        <p><a href="/health">Проверить здоровье сервера</a></p>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    message: 'Proxy is running',
+    timestamp: new Date().toISOString(),
+    target: TARGET
+  });
+});
+
+// WebSocket прокси (маскировка)
+app.use('/ws', createProxyMiddleware({
+  target: TARGET,
+  changeOrigin: true,
+  ws: true,
+  pathRewrite: { '^/ws': '' },
+  logLevel: 'silent'
+}));
+
+// Обычный HTTP прокси
+app.use('/proxy', createProxyMiddleware({
+  target: TARGET,
+  changeOrigin: true,
+  pathRewrite: { '^/proxy': '' }
+}));
+
+app.listen(PORT, () => {
+  console.log(\`🚀 Сервер запущен на порту ${PORT}\`);
+});
